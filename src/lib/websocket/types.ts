@@ -56,9 +56,10 @@ export interface AgentStatus {
   id: string
   isRunning: boolean
   status: 'IDLE' | 'RUNNING' | 'ERROR' | 'COMPLETED' | 'STOPPED'
+  browserState?: BrowserState; // browserState プロパティを追加
 }
 
 export interface WebSocketMessage {
-  type: 'AGENT_COMMAND' | 'BROWSER_COMMAND' | 'AGENT_RESPONSE' | 'AGENT_STATUS'
-  data: AgentCommand | BrowserCommand | AgentResponse | AgentStatus
+  type: 'AGENT_COMMAND' | 'BROWSER_COMMAND' | 'AGENT_RESPONSE' | 'AGENT_STATUS' | 'BROWSER_STATE' | 'ERROR'
+  data: AgentCommand | BrowserCommand | AgentResponse | AgentStatus | BrowserState
 }

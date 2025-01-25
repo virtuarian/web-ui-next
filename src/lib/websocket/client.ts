@@ -16,36 +16,40 @@ export class WebSocketClient {
     statusCallback: (status: WebSocketStatus) => void,
     messageCallback: (data: any) => void
   ) {
+    console.log('WebSocketClient constructor:', url);
     this.url = url;
     this.statusCallback = statusCallback;
     this.messageCallback = messageCallback;
   }
 
   connect() {
-    if (this.isClosing || this.ws?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    this.ws = new WebSocket(this.url);
-    this.statusCallback('CONNECTING');
-
-    this.connectTimeout = setTimeout(() => {
-      if (this.ws?.readyState === WebSocket.CONNECTING) {
-        this.ws.close();
-        this.statusCallback('ERROR');
-        this.tryReconnect();
+    return new Promise((resolve, reject) => { // Promise を返すように変更
+      if (this.isClosing || this.ws?.readyState === WebSocket.OPEN) {
+        return resolve(); // 既に接続済みの場合は resolve
       }
-    }, 5000);
 
-    this.setupEventHandlers();
+      if (this.ws) {
+        this.ws.close();
+        this.ws = null;
+      }
+
+      this.ws = new WebSocket(this.url);
+      this.statusCallback('CONNECTING');
+
+      this.connectTimeout = setTimeout(() => {
+        if (this.ws?.readyState === WebSocket.CONNECTING) {
+          this.ws.close();
+          this.statusCallback('ERROR');
+          this.tryReconnect();
+          reject(new Error('WebSocket connection timeout')); // timeout 時に reject
+        }
+      }, 5000);
+
+      this.setupEventHandlers(resolve, reject); // resolve, reject を渡す
+    });
   }
 
-  private setupEventHandlers() {
+  private setupEventHandlers(resolve: () => void, reject: (reason?: any) => void) { // resolve, reject を引数に追加
     if (!this.ws) return;
 
     this.ws.onopen = () => {
@@ -56,6 +60,7 @@ export class WebSocketClient {
       console.log('WebSocket connection established');
       this.statusCallback('OPEN');
       this.reconnectAttempts = 0;
+      resolve(); // resolve を呼び出す
     };
 
     this.ws.onclose = () => {
@@ -66,24 +71,28 @@ export class WebSocketClient {
       console.log('WebSocket connection closed');
       if (!this.isClosing) {
         this.statusCallback('CLOSED');
-        this.tryReconnect();
+        // this.tryReconnect(); // Disable reconnect on close
       }
     };
 
-    this.ws.onerror = () => {
-      console.error('WebSocket error');
+    this.ws.onerror = (error) => { // error を引数として受け取る
+      console.error('WebSocket error', error); // error をログ出力
       if (!this.isClosing) {
         this.statusCallback('ERROR');
+        reject(new Error('WebSocket connection error')); // reject を呼び出す
+        // this.tryReconnect(); // Disable reconnect on error
       }
     };
 
     this.ws.onmessage = (event) => {
+      let data;
       try {
-        const data = JSON.parse(event.data);
-        this.messageCallback(data);
+        data = JSON.parse(event.data.toString()); // Parse as JSON, convert to string first for safety
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.log('Received plain text message:', event.data.toString()); // Log plain text message
+        data = event.data.toString(); // If JSON parsing fails, treat as plain text
       }
+      this.messageCallback(data); // Pass data (either JSON object or string) to callback
     };
   }
 
@@ -130,6 +139,11 @@ export class WebSocketClient {
     this.statusCallback('CLOSED');
     this.isClosing = false;
     this.reconnectAttempts = 0;
+    this.ws = null; // Nullify ws reference in disconnect
+    if (this.connectTimeout) { // Clear timeout in disconnect (redundant but safe)
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
   }
 
   isConnected(): boolean {

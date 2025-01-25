@@ -23,12 +23,18 @@ let currentState = {
 wss.on('connection', (ws) => {
   console.log('Client connected');
 
-  ws.send(JSON.stringify({
-    type: 'AGENT_STATUS',
-    data: currentState
-  }));
+  // ws.send(JSON.stringify({ // コメントアウト: 接続時 AGENT_STATUS 送信
+  //   type: 'AGENT_STATUS',
+  //   data: currentState
+  // }));
 
   ws.on('message', (message) => {
+    console.log('Received message:', message.toString());
+    console.log('Received message details:', {
+      timestamp: new Date().toISOString(),
+      message: message.toString(),
+      length: message.length
+    });
     try {
       const data = JSON.parse(message.toString());
       console.log('Received:', data);
@@ -42,10 +48,26 @@ wss.on('connection', (ws) => {
             currentTask: data.action
           }
         }));
+      } else if (data.type === 'AGENT_COMMAND') {
+        // Handle AGENT_COMMAND messages
+        const { type, task, config } = data.data;
+        if (type === 'START') {
+          // Start processing the task
+          currentState.currentTask = task;
+          currentState.status = 'RUNNING';
+          ws.send(JSON.stringify({
+            type: 'AGENT_STATUS',
+            data: currentState
+          }));
+        }
       }
     } catch (error) {
       console.error('Error:', error);
     }
+  });
+
+  ws.on('close', (code, reason) => {
+    console.log(`WebSocket connection closed with code ${code} and reason: ${reason}`);
   });
 
   ws.on('error', console.error);

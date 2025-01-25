@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -22,67 +22,38 @@ const RunAgent = () => {
   const [error, setError] = useState<string | null>(null)
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:7788'
   const { setState: setBrowserState } = useBrowserStore()
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    if (message.type === 'AGENT_RESPONSE') {
-      const response = message.data as AgentResponse;
-      if (response.type === 'STATE_UPDATE' && response.data.state) {
-        setBrowserState(response.data.state);
-        setIsRunning(true);
-      }
-      if (response.type === 'ERROR' && response.data.error) {
-        setError(response.data.error);
-        setIsRunning(false);
-      }
-      if (response.type === 'TASK_COMPLETE') {
-        setIsRunning(false);
-      }
-    }
-  }, [setBrowserState, setIsRunning]);
+  const { status, disconnect, connect,sendMessage } = useWebSocket(wsUrl); // オプションを削除
 
-  // const { sendMessage, status, disconnect } = useWebSocket(wsUrl, {
-  //   onMessage: handleMessage,
-    // onOpen: () => {
-    //   console.log('WebSocket connection established');
-    // },
-    // onError: (error) => {
-    //   console.error('WebSocket error:', error);
-    // }
-  // })
-  const { sendMessage, status, disconnect } = useWebSocket(wsUrl, {
-    onMessage: handleMessage,
-    autoReconnect: true,
-    reconnectInterval: 1000,
-    maxReconnectAttempts: 5
-  });
+  useEffect(() => {
+    connect(); // マウント時に接続
+    return () => {
+      disconnect(); // アンマウント時に切断
+    }
+  }, []); // 依存配列を修正
+
 
   const handleRun = async () => {
     if (!task) {
-      setError('Please enter a task description')
-      return
+      setError('Please enter a task description');
+      return;
     }
-    
-    setIsRunning(true)
-    setError(null)
-    
-    try {
-      const message: WebSocketMessage = {
-        type: 'AGENT_COMMAND',
-        data: {
-          type: 'START',
-          task,
-          config: {
-            maxSteps: 100,
-            useVision: true,
-            maxActionsPerStep: 5,
-            toolCallInContent: false
-          }
+
+    // await connect();
+    const message: WebSocketMessage = {
+      type: 'AGENT_COMMAND',
+      data: {
+        type: 'START',
+        task,
+        config: {
+          maxSteps: 100,
+          useVision: true,
+          maxActionsPerStep: 5,
+          toolCallInContent: false
         }
       }
-      sendMessage(message)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      setIsRunning(false)
-    }
+    };
+    console.log('Sending message:', message);
+    sendMessage(message);
   }
 
   const handleStop = async () => {
@@ -93,21 +64,13 @@ const RunAgent = () => {
           type: 'STOP'
         }
       }
+      console.log('Sending message:', message);
       sendMessage(message)
       setIsRunning(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop agent')
     }
   }
-
-  useEffect(() => {
-    if (status === 'ERROR') {
-      setError('WebSocket connection error')
-    }
-    return () => {
-      disconnect()
-    }
-  }, [status, disconnect])
 
   return (
     <div className="space-y-4">
@@ -167,9 +130,9 @@ const RunAgent = () => {
 
           {status !== 'OPEN' && (
             <p className="text-sm text-warning">
-              {status === 'CONNECTING' ? 'Connecting to server...' : 
-               status === 'CLOSED' ? 'Server connection closed' :
-               status === 'ERROR' ? 'Server connection error' : 'Unknown status'}
+              {status === 'CONNECTING' ? 'Connecting to server...' :
+                status === 'CLOSED' ? 'Server connection closed' :
+                  status === 'ERROR' ? 'Server connection error' : 'Unknown status'}
             </p>
           )}
         </CardContent>

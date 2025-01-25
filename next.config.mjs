@@ -3,6 +3,8 @@ const nextConfig = {
   experimental: {
     serverActions: true,
   },
+  reactStrictMode: false,
+  // fastRefresh: false,
 }
 
 export default nextConfig
