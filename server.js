@@ -20,13 +20,15 @@ let currentState = {
   }
 };
 
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws) => {
   console.log('Client connected');
 
   // ws.send(JSON.stringify({ // コメントアウト: 接続時 AGENT_STATUS 送信
   //   type: 'AGENT_STATUS',
   //   data: currentState
+  //   data: currentState
   // }));
+
 
   ws.on('message', (message) => {
     console.log('Received message:', message.toString());
@@ -60,6 +62,8 @@ wss.on('connection', (ws) => {
             data: currentState
           }));
         }
+      } else if (data.type === 'BROWSER_COMMAND') { // BROWSER_COMMAND メッセージ処理を追加
+        browserCommands.executeCommand(data.data, ws);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -72,6 +76,32 @@ wss.on('connection', (ws) => {
 
   ws.on('error', console.error);
 });
+
+
+// ブラウザ制御関連
+const browserCommands = {
+  async executeCommand(command, ws) {
+    try {
+      switch (command.type) {
+        case 'CLICK':
+        case 'TYPE':
+        case 'NAVIGATE':
+          currentState.browserState = await executeBrowserAction(command);
+          break;
+      }
+      ws.send(JSON.stringify({
+        type: 'BROWSER_STATE',
+        data: currentState.browserState
+      }));
+    } catch (error) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        data: { error: error.message }
+      }));
+    }
+  }
+};
+
 
 server.listen(7788, () => {
   console.log('Server running on port 7788');

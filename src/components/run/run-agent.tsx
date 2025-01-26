@@ -108,7 +108,53 @@ const RunAgent = () => {
 
           <div className="flex gap-4">
             <Button
-              onClick={handleRun}
+              onClick={async () => {
+                console.log("Run Agent button clicked");
+                // Send task to API route
+                const taskDescription = task.value; // Get task description from Textbox
+                const browserState = { url: 'example.com', title: 'Example' }; // Replace with actual browser state retrieval if needed
+
+                try {
+                  const response = await fetch('/api/agent/next-action', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ task: taskDescription, browserState: browserState }), // Send task and browser state
+                  });
+
+                  if (!response.ok) {
+                    console.error('API request failed', response.status, response.statusText);
+                    return;
+                  }
+
+                  const data = await response.json();
+                  console.log('API Response Data:', data); // Log API response data
+
+                  // Handle agentOutput (LLM's response) - For now, just log it
+                  if (data.agentOutput) {
+                    console.log('Agent Output:', data.agentOutput);
+                    // Send browser command to WebSocket server
+                    if (data.agentOutput && data.agentOutput.actionType) {
+                      const browserCommandMessage: WebSocketMessage = {
+                        type: 'BROWSER_COMMAND',
+                        data: {
+                          type: data.agentOutput.actionType.toUpperCase(), // Convert actionType to uppercase for command type
+                          actionType: data.agentOutput.actionType,
+                          actionValue: data.agentOutput.actionValue,
+                          actionElement: data.agentOutput.actionElement,
+                        },
+                      };
+                      console.log('Sending browser command message:', browserCommandMessage);
+                      sendMessage(browserCommandMessage);
+                    }
+                  } else {
+                    console.warn('No agentOutput received from API');
+                  }
+                } catch (error) {
+                  console.error('Error sending task to API:', error);
+                }
+              }}
               disabled={isRunning || status !== 'OPEN'}
               className="flex-1"
             >

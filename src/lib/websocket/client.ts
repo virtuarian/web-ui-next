@@ -10,7 +10,19 @@ export class WebSocketClient {
   private reconnectAttempts: number = 0;
   private readonly maxReconnectAttempts: number = 5;
   private readonly reconnectDelay: number = 1000;
-
+  private responseHandlers = new Map<string, {
+    resolve: (value: any) => void;
+    reject: (reason?: any) => void;
+  }>();
+ 
+  sendWithResponse<T>(type: string, payload: any): Promise<T> {
+    const id = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      this.responseHandlers.set(id, {resolve, reject});
+      this.send({type, payload, id});
+    });
+  }
+  
   constructor(
     url: string,
     statusCallback: (status: WebSocketStatus) => void,
@@ -25,7 +37,7 @@ export class WebSocketClient {
   connect() {
     return new Promise((resolve, reject) => { // Promise を返すように変更
       if (this.isClosing || this.ws?.readyState === WebSocket.OPEN) {
-        return resolve(); // 既に接続済みの場合は resolve
+        return resolve; // 既に接続済みの場合は resolve
       }
 
       if (this.ws) {

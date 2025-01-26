@@ -126,12 +126,10 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
   }, []);
 
   const isDisconnectingRef = useRef(false); // Add a ref to track disconnection
-
   useEffect(() => {
-    console.log('useWebSocket Hook mounted');
     mountedRef.current = true;
     isDisconnectingRef.current = false; // Reset disconnection flag on mount
-    // connect();
+    connect();
     return () => {
       mountedRef.current = false;
       isDisconnectingRef.current = true; // Set disconnection flag on unmount

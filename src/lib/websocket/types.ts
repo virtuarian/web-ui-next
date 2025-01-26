@@ -38,7 +38,10 @@ export interface AgentConfig {
 
 export interface BrowserCommand {
   type: 'CLICK' | 'TYPE' | 'NAVIGATE' | 'SCREENSHOT' | 'SCROLL'
+  actionType: string; // actionType プロパティを追加 (string 型)
+  actionValue: string; // actionValue プロパティを追加 (string 型)
   data: any
+  actionElement: string; // actionElement プロパティを追加 (string 型)
 }
 
 export interface AgentResponse {
@@ -62,4 +65,17 @@ export interface AgentStatus {
 export interface WebSocketMessage {
   type: 'AGENT_COMMAND' | 'BROWSER_COMMAND' | 'AGENT_RESPONSE' | 'AGENT_STATUS' | 'BROWSER_STATE' | 'ERROR'
   data: AgentCommand | BrowserCommand | AgentResponse | AgentStatus | BrowserState
+}
+
+export interface MessageResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+export interface BrowserCommandMessage {
+  id: string;
+  command: BrowserCommand;
+  status: 'pending' | 'success' | 'error';
+  result?: any;
 }

@@ -1,44 +1,24 @@
-export type AgentType = 'org' | 'custom'
+// src/types/agent.ts
 
-export interface AgentConfig {
-  type: AgentType
-  maxSteps: number
-  useVision: boolean
-  maxActionsPerStep: number
-  toolCallInContent: boolean
+export interface AgentOutput {
+  action: any[]; // Placeholder - replace with actual Action type array
+  current_state: { // Placeholder - replace with actual CurrentState type
+    prev_action_evaluation: string; // Placeholder
+    important_contents: string;    // Placeholder
+    completed_contents: string;    // Placeholder
+    thought: string;             // Placeholder
+    summary: string;             // Placeholder
+  };
 }
 
-export interface AgentState {
-  isRunning: boolean
-  currentStep: number
-  lastAction?: AgentAction
-  lastError?: string
+export interface AgentStepInfo { // AgentStepInfo interface
+ step_number: number;      // Placeholder
+ task_progress: string;    // Placeholder
+ memory: string;           // Placeholder
 }
 
-export interface AgentAction {
-  type: string
-  params: Record<string, any>
-  timestamp: string
-  success: boolean
-  result?: string
-  error?: string
-}
-
-export interface AgentTask {
-  id: string
-  description: string
-  additionalInfo?: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  startTime?: string
-  endTime?: string
-  result?: string
-}
-
-export interface AgentHistory {
-  taskId: string
-  actions: AgentAction[]
-  thoughts: string[]
-  browserStates: BrowserState[]
-  finalResult?: string
-  errors: string[]
+export interface ActionResult { // ActionResult interface
+extracted_content: string | null; // Placeholder
+error: string | null;           // Placeholder
+is_done: boolean;             // Placeholder
 }
