@@ -61,6 +61,8 @@ const LLMConfiguration: React.FC = () => {
     const configToSave = { ...config, provider: selectedProvider };
     localStorage.setItem('llmConfig', JSON.stringify(configToSave));
     console.log('Configuration saved:', configToSave);
+    // ここでAPIリクエストを送信する処理を追加します。
+    // 例: sendConfigToAPI(configToSave);
   };
 
   return (

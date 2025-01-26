@@ -69,21 +69,29 @@ const callGemini = async ({ apiKey, model, message }: LLMRequestParams) => {
 
 // DeepSeekのリクエスト関数
 const callDeepSeek = async ({ apiKey, model, message, endpoint }: LLMRequestParams) => {
-  const response = await fetch(`${endpoint}/v1/chat/completions`, { // endpoint を使用
+
+
+  const requestBody = {
+    model: model,
+    messages: [
+      { role: "system", content: "You are a helpful assistant." },
+      { role: "user",   content: message }
+    ],
+    stream: false
+  };
+
+  const response = await fetch(`${endpoint}/chat/completions`, { // endpoint を使用
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`, // apiKey をパラメータから取得
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      prompt: message, // パラメータ名を 'prompt' に修正 (DeepSeek API に合わせる)
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) throw new Error('DeepSeek request failed');
   const data = await response.json();
-  return data.result || ''; // レスポンスの形式に合わせて修正 (要確認)
+  return data.choices[0].message.content || ''; // レスポンスの形式に合わせて修正 (要確認)
 };
 
 export const parseResponse = (responseContent: string): AgentOutput => { // parseResponse 関数は export したまま

@@ -38,7 +38,9 @@ const RunAgent = () => {
       return;
     }
 
-    // await connect();
+    const savedConfig = localStorage.getItem('llmConfig');
+    const llmConfig = savedConfig ? JSON.parse(savedConfig) : {};
+
     const message: WebSocketMessage = {
       type: 'AGENT_COMMAND',
       data: {
@@ -48,7 +50,8 @@ const RunAgent = () => {
           maxSteps: 100,
           useVision: true,
           maxActionsPerStep: 5,
-          toolCallInContent: false
+          toolCallInContent: false,
+          llmConfig
         }
       }
     };
@@ -111,16 +114,19 @@ const RunAgent = () => {
               onClick={async () => {
                 console.log("Run Agent button clicked");
                 // Send task to API route
-                const taskDescription = task.value; // Get task description from Textbox
+                const taskDescription = task; // Get task description from Textbox
                 const browserState = { url: 'example.com', title: 'Example' }; // Replace with actual browser state retrieval if needed
 
                 try {
+                  const savedConfig = localStorage.getItem('llmConfig');
+                  const llmConfig = savedConfig ? JSON.parse(savedConfig) : {};
+                  console.log('llmConfig:', llmConfig);
                   const response = await fetch('/api/agent/next-action', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ task: taskDescription, browserState: browserState }), // Send task and browser state
+                    body: JSON.stringify({ task: taskDescription, browserState: browserState, llmConfig }), // llmConfigを追加
                   });
 
                   if (!response.ok) {

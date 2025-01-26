@@ -14,32 +14,29 @@ export async function POST(req: Request) {
   try {
     const requestBody = await req.json(); // Log request body
     console.log("Request Body:", requestBody);
-    const { browserState, task, llmConfig: requestLlmConfig } = requestBody; // リクエストボディから browserState, task, llmConfig を取得 // 修正: llmConfig をリクエストボディから取得
+    const { browserState, task, llmConfig } = requestBody; // リクエストボディから browserState, task, llmConfig を取得
 
 
-    if (!browserState || !task || !requestLlmConfig) { // llmConfig も必須パラメータに追加
+    if (!browserState || !task || !llmConfig) { // llmConfig も必須パラメータに追加
       console.warn("Missing browserState or task or llmConfig in request body"); // Log missing params
       return NextResponse.json({ error: 'Missing browserState or task or llmConfig in request body' }, { status: 400 });
     }
 
-    // localStorage から LLM 設定をロード (Next.js API Route では localStorage に直接アクセスできないため、環境変数で代用)
-    const llmConfig = {
-      provider: process.env.LLM_PROVIDER || 'openai', // デフォルト: openai
-      apiKey: process.env.OPENAI_API_KEY,         // API キー (環境変数から取得)
-      endpoint: process.env.LLM_ENDPOINT,         // エンドポイント (環境変数から取得)
-      model: process.env.LLM_MODEL_NAME || 'gpt-4-vision-preview', // デフォルト: gpt-4-vision-preview
-      temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'), // デフォルト: 0.7
-      maxTokens: parseInt(process.env.LLM_MAX_TOKENS || '2048'),   // デフォルト: 2048
-    };
+    // LLM 設定をリクエストから取得
+    // const llmConfig = {
+    //   apiKey: process.env.OPENAI_API_KEY,
+    //   model: process.env.OPENAI_MODEL,
+    //   temperature: process.env.OPENAI_TEMPERATURE,
+    //   endpoint: process.env.OPENAI_ENDPOINT,
+    //   provider: process.env.OPENAI_PROVIDER,
+    // };
 
-    // const llmController = new LLMController(llmConfig.apiKey, llmConfig.model, llmConfig.temperature, llmConfig.endpoint); // LLMController をインスタンス化 (設定値を渡す) - 復活
-
-    const agentOutput = await sendMessageToLLM(provider, { // sendMessageToLLM 関数を呼び出し - キャスト済みの provider を渡す - 修正: llmConfig を使用
-      model: llmConfig.model, // リクエストから取得した llmConfig から model を取得 - 修正: llmConfig を使用
+    const agentOutput = await sendMessageToLLM(llmConfig.provider, { // sendMessageToLLM 関数を呼び出し - キャスト済みの provider を渡す
+      model: llmConfig.model, // リクエストから取得した llmConfig から model を取得
       message: task,
-      apiKey: llmConfig.apiKey, // リクエストから取得した llmConfig から apiKey を取得 - 修正: llmConfig を使用
-      endpoint: llmConfig.endpoint, // リクエストから取得した llmConfig から endpoint を取得 - 修正: llmConfig を使用
-      temperature: llmConfig.temperature, // リクエストから取得した llmConfig から temperature を取得 - 修正: llmConfig を使用
+      apiKey: llmConfig.apiKey, // リクエストから取得した llmConfig から apiKey を取得
+      endpoint: llmConfig.endpoint, // リクエストから取得した llmConfig から endpoint を取得
+      temperature: llmConfig.temperature, // リクエストから取得した llmConfig から temperature を取得
     });
     console.log("sendMessageToLLM Output:", agentOutput); // Log sendMessageToLLM output
 
