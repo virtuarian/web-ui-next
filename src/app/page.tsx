@@ -28,6 +28,8 @@ const ResultsDisplay = dynamic(() => import('@/components/results/results-displa
 const RecordingsGallery = dynamic(() => import('@/components/recordings/recordings-gallery'), {
   ssr: false,
 })
+import BrowserView from '@/components/browser/browser-view'; // Remove dynamic import for BrowserView
+// const BrowserView = dynamic(() => import('@/components/browser/browser-view'), { ssr: false }); // Revert to dynamic import - for testing
 
 export default function Home() {
   return (

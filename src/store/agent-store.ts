@@ -38,6 +38,7 @@ interface AgentState {
   additionalInfo: string
   taskProgress: string
   isRunning: boolean
+  status:string
   setAgentConfig: (config: Partial<AgentConfig>) => void
   setLLMConfig: (config: Partial<LLMConfig>) => void
   setBrowserConfig: (config: Partial<BrowserConfig>) => void
@@ -45,7 +46,7 @@ interface AgentState {
   setAdditionalInfo: (info: string) => void
   setTaskProgress: (progress: string) => void
   setIsRunning: (isRunning: boolean) => void
-  updateAgentStatus: (status: boolean) => void
+  updateAgentStatus: (status: string) => void
   reset: () => void
 }
 
@@ -87,6 +88,7 @@ export const useAgentStore = create<AgentState>()(
     additionalInfo: '',
     taskProgress: '',
     isRunning: false,
+    status:'',
 
     setAgentConfig: (config) =>
       set((state) => ({
@@ -111,7 +113,7 @@ export const useAgentStore = create<AgentState>()(
     
     setIsRunning: (isRunning) => set({ isRunning }),
 
-    updateAgentStatus: (status) => set({ isRunning: status }),
+    updateAgentStatus: (status) => set({ status }),
 
     reset: () =>
       set({
@@ -122,6 +124,7 @@ export const useAgentStore = create<AgentState>()(
         additionalInfo: '',
         taskProgress: '',
         isRunning: false,
+        status:'',
       }),
   }))
 )

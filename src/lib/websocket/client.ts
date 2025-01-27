@@ -4,7 +4,9 @@ export class WebSocketClient {
   private ws: WebSocket | null = null;
   private url: string;
   private statusCallback: (status: WebSocketStatus) => void;
-  private messageCallback: (data: any) => void;
+  private browserStateCallback: (data: any) => void; // Add browserStateCallback
+  private agentStatusCallback: (data: any) => void; // Add agentStatusCallback
+  private errorCallback: (error: any) => void; // Add errorCallback
   private isClosing: boolean = false;
   private connectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts: number = 0;
@@ -26,12 +28,16 @@ export class WebSocketClient {
   constructor(
     url: string,
     statusCallback: (status: WebSocketStatus) => void,
-    messageCallback: (data: any) => void
+    browserStateCallback: (data: any) => void, // Add browserStateCallback to constructor
+    agentStatusCallback: (data: any) => void, // Add agentStatusCallback to constructor
+    errorCallback: (error: any) => void // Add errorCallback to constructor
   ) {
     console.log('WebSocketClient constructor:', url);
     this.url = url;
     this.statusCallback = statusCallback;
-    this.messageCallback = messageCallback;
+    this.browserStateCallback = browserStateCallback; // Assign browserStateCallback
+    this.agentStatusCallback = agentStatusCallback; // Assign agentStatusCallback
+    this.errorCallback = errorCallback; // Assign errorCallback
   }
 
   connect() {
@@ -104,7 +110,17 @@ export class WebSocketClient {
         console.log('Received plain text message:', event.data.toString()); // Log plain text message
         data = event.data.toString(); // If JSON parsing fails, treat as plain text
       }
-      this.messageCallback(data); // Pass data (either JSON object or string) to callback
+      // this.messageCallback(data); // Pass data (either JSON object or string) to callback - Remove generic messageCallback
+      if (data.type === 'BROWSER_STATE') { // Handle message types and call specific callbacks
+        this.browserStateCallback(data.data);
+      } else if (data.type === 'AGENT_STATUS') {
+        this.agentStatusCallback(data.data);
+      } else if (data.type === 'ERROR') {
+        this.errorCallback(data.data);
+      } else { // Fallback to generic messageCallback for other message types - Remove generic messageCallback
+        // this.messageCallback(data);
+        console.log('Unknown message type:', data.type); // Log unknown message types
+      }
     };
   }
 

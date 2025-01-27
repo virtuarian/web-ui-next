@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebSocketClient } from '@/lib/websocket/client';
 import { WebSocketStatus } from '@/lib/utils';
-import { WebSocketMessage, AgentResponse, AgentStatus } from '@/lib/websocket/types';
+import { WebSocketMessage, AgentResponse, AgentStatus, BrowserState } from '@/lib/websocket/types';
 import { useBrowserStore } from '@/store';
-import { BrowserState } from '@/types/browser';
 
 interface WebSocketHookOptions {
-  onMessage?: (message: WebSocketMessage) => void;
+  onBrowserState?: (data: any) => void; // Add onBrowserState callback
+  onAgentStatus?: (data: any) => void; // Add onAgentStatus callback
+  onError?: (error: any) => void;
   onOpen?: () => void;
   onClose?: () => void;
-  onError?: (error: any) => void;
   autoReconnect?: boolean;
   reconnectInterval?: number;
 }
 
 export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
-  const { onMessage, onOpen, onClose, onError, autoReconnect, reconnectInterval } = options;
+  const { onBrowserState, onAgentStatus, onError, onOpen, onClose, autoReconnect, reconnectInterval } = options;
   const [status, setStatus] = useState<WebSocketStatus>('CLOSED');
   const [error, setError] = useState<Error | null>(null);
   const wsRef = useRef<WebSocketClient | null>(null);
@@ -28,39 +28,45 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
 
     try {
       console.log('Received message:', message);
-      if (onMessage) {
-        onMessage(message);
-      }
+      // if (onMessage) { // Remove generic onMessage callback
+      //   onMessage(message);
+      // }
 
       switch (message.type) {
-        case 'AGENT_STATUS':
-          console.log('Processing AGENT_STATUS:', message.data);
-          const agentStatus = message.data as AgentStatus; // 型アサーション
-          if (agentStatus.browserState) {
-            setBrowserState(agentStatus.browserState);
+        case 'BROWSER_STATE':
+          console.log('Processing BROWSER_STATE:', message.data);
+          // if (onBrowserState) { // Call onBrowserState callback if provided
+          if (onBrowserState) {
+            onBrowserState(message.data);
+          } else {
+            setBrowserState(message.data); // Fallback to setBrowserState if onBrowserState not provided - Remove fallback
           }
           break;
 
-        case 'BROWSER_STATE':
-          console.log('Processing BROWSER_STATE:', message.data);
-          const browserState = message.data as BrowserState; // 型アサーション
-          setBrowserState(browserState);
+        case 'AGENT_STATUS':
+          console.log('Processing AGENT_STATUS:', message.data);
+          if (onAgentStatus) { // Call onAgentStatus callback if provided
+            onAgentStatus(message.data);
+          }
           break;
 
         case 'ERROR':
           console.error('Received error:', message.data);
-          const errorData = message.data as AgentResponse['data'] & { error: string }; // 型アサーションを修正
-          setError(new Error(errorData.error)); // errorData.message を errorData.error に修正
+          if (onError) { // Call onError callback if provided
+            onError(message.data.error);
+          } else {
+            setError(new Error(message.data.error)); // Fallback to setError if onError not provided - Remove fallback
+          }
           break;
       }
     } catch (err) {
       console.error('Error handling message:', err);
       setError(err instanceof Error ? err : new Error('Failed to handle message'));
     }
-  }, [onMessage, setBrowserState]);
+  }, [onBrowserState, onAgentStatus, onError, setBrowserState]); // Add onBrowserState, onAgentStatus, onError dependencies
 
   const connect = useCallback(() => {
-    return new Promise<void>((resolve, reject) => { // Promise を返すように変更
+    return new Promise((resolve, reject) => { // Promise を返すように変更
       hookCountRef.current++; // Hook 実行回数をインクリメント
       console.log(`useWebSocket Hook executed ${hookCountRef.current} times`); // ログ出力
       if (!mountedRef.current) return reject(new Error('Component unmounted')); // エラー処理を追加
@@ -85,7 +91,9 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
               }
             }
           },
-          handleMessage
+          onBrowserState, // Pass onBrowserState callback
+          onAgentStatus, // Pass onAgentStatus callback
+          onError // Pass onError callback
         );
         console.log('WebSocketClient instance end');
         console.log('WebSocket client initialized:', wsRef.current);
@@ -93,11 +101,6 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
         wsRef.current.connect();
         console.log('WebSocket connection initiated:', wsRef.current);
         console.log('wsRef.current is correctly assigned after connecting:', wsRef.current); // Added this line
-        // WebSocketメッセージのリスナーを追加 - Move listener setup here
-        wsRef.current.onmessage = (event) => {
-          const message = JSON.parse(event.data);
-          handleMessage(message);
-        };
       } catch (err) {
         console.error('Connection error:', err);
         setError(err instanceof Error ? err : new Error('Connection failed'));
@@ -106,7 +109,7 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
         console.error('Failed to establish WebSocket connection:', err);
       }
     });
-  }, [url, handleMessage, onError]); // Add onError to dependency array
+  }, [url, handleMessage, onError, onAgentStatus, onBrowserState]); // Add onBrowserState, onAgentStatus to dependency array
 
   const disconnect = useCallback(() => {
     if (wsRef.current) {
@@ -118,10 +121,12 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
 
   const sendMessage = useCallback((message: WebSocketMessage) => {
     console.log('wsRef:', wsRef.current);
+
     if (!wsRef.current) {
       console.error('wsRef.current is not assigned');
       return;
     }
+
     if (!wsRef.current.isConnected()) {
       console.warn('WebSocket is not connected');
       return;
@@ -130,19 +135,19 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
   }, []);
 
   const isDisconnectingRef = useRef(false); // Add a ref to track disconnection
-  useEffect(() => {
-    mountedRef.current = true;
-    isDisconnectingRef.current = false; // Reset disconnection flag on mount
-    connect();
-    return () => {
-      mountedRef.current = false;
-      isDisconnectingRef.current = true; // Set disconnection flag on unmount
-      disconnect();
-      if (wsRef.current) { // Cleanup websocket.onmessage listener
-        wsRef.current.onmessage = null;
-      }
-    };
-  }, [connect, disconnect]);
+  // useEffect(() => {
+  //   mountedRef.current = true;
+  //   isDisconnectingRef.current = false; // Reset disconnection flag on mount
+  //   connect();
+  //   return () => {
+  //     mountedRef.current = false;
+  //     isDisconnectingRef.current = true; // Set disconnection flag on unmount
+  //     disconnect();
+  //     if (wsRef.current) { // Cleanup websocket.onmessage listener
+  //       wsRef.current.onmessage = null;
+  //     }
+  //   };
+  // }, [connect, disconnect]);
 
   // useEffect(() => { // Add a separate useEffect to prevent immediate reconnect
   //   if (status === 'CLOSED' && !isDisconnectingRef.current) {

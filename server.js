@@ -12,6 +12,7 @@ let currentState = {
   taskProgress: '',
   memory: '',
   error: null,
+  isRunning:false,
   browserState: {
     url: null,
     title: null,

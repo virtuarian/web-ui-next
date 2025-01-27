@@ -227,7 +227,19 @@ export class Agent {
                 console.log("Agent.run() - Placeholder - Max steps reached"); // Log max steps reached
                 break; // Exit loop if max steps reached
             }
+           
+            async initializeBrowserContext(context: any) { // Move initializeBrowserContext to Agent class
+              // Placeholder implementation - copy from action-executor.ts
+              console.log("Agent.initializeBrowserContext() - Placeholder", context);
+              this.browserContext = context; // Store browserContext in Agent class
+              console.log("Browser context initialized in Agent class.");
+            }
         }
-        console.log("Agent.run() - Placeholder - END");
-    }
+    console.log("Agent.run() - Placeholder - END");
+  }
 }
+
+// async initializeBrowserContext(context: BrowserContext) { // Move initializeBrowserContext to Agent class - Remove from here
+//   browserContext = context;
+//   console.log("Browser context initialized.");
+// }

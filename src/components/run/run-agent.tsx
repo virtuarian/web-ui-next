@@ -15,16 +15,84 @@ import { Button } from '../ui/button'
 import BrowserView from '../browser/browser-view'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { useBrowserStore } from '@/store'
-import type { WebSocketMessage, AgentResponse } from '@/lib/websocket/types'
+import type { WebSocketMessage, AgentResponse, AgentStatus } from '@/lib/websocket/types'
 import { BrowserState } from '@/types/browser'
-
 
 const RunAgent = () => {
   const { task, additionalInfo, setTask, setAdditionalInfo, isRunning, setIsRunning, updateAgentStatus } = useAgentStore()
   const [error, setError] = useState<string | null>(null)
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:7788'
   const { setState: setBrowserState } = useBrowserStore()
-  const { status, disconnect, connect, sendMessage } = useWebSocket(wsUrl); // オプションを削除
+  const { status, disconnect, connect, sendMessage } = useWebSocket(wsUrl, { // Pass separate callbacks to useWebSocket
+    onBrowserState: (data: BrowserState) => { // Define onBrowserState handler
+      console.log(data);
+      if (data) {
+        setBrowserState(data);
+      } else {
+        const defaultBrowserState: BrowserState = {
+          url: '',
+          title: '',
+          tabs: [],
+          screenshot: null,
+          interactedElements: [],
+          element_tree: {
+            clickable_elements_to_string: function (attributes: string[]): string {
+              throw new Error('Function not implemented.')
+            }
+          },
+          status: 'IDLE',
+          error: null,
+          taskProgress: '',
+          memory: '',
+          stepNumber: 0
+        };
+        setBrowserState(defaultBrowserState);
+        console.error('Received data is not of type BrowserState:', data);
+      }
+    },
+    onAgentStatus: (data: AgentStatus) => { // Define onAgentStatus handler
+      updateAgentStatus(data.status); // Pass data.status instead of data.taskProgress
+    },
+    onError: (errorData: { error: string }) => { // Define onError handler
+      setError(errorData.error);
+    },
+  });
+
+  const handleBrowserStateMessage = useCallback((message: BrowserState) => { // Define handleBrowserStateMessage callback - Fix useCallback parameter type
+    if (message) {
+      setBrowserState(message);
+    } else {
+      const defaultBrowserState: BrowserState = {
+        url: '',
+        title: '',
+        tabs: [],
+        screenshot: null,
+        interactedElements: [],
+        element_tree: {
+          clickable_elements_to_string: function (attributes: string[]): string {
+            throw new Error('Function not implemented.')
+          }
+        },
+        status: 'IDLE',
+        error: null,
+        taskProgress: '',
+        memory: '',
+        stepNumber: 0
+      };
+      setBrowserState(defaultBrowserState);
+      console.error('Received data is not of type BrowserState:', message);
+    }
+  }, [setBrowserState]);
+
+
+  const handleAgentStatusMessage = useCallback((data: AgentStatus) => { // Define handleAgentStatusMessage callback
+    // updateAgentStatus(data.taskProgress); // Pass data.status instead of data.taskProgress - original code
+    updateAgentStatus(data.status); // Pass boolean value to updateAgentStatus based on data.status
+  }, [updateAgentStatus]);
+
+  const handleErrorMessage = useCallback((errorData: { error: string }) => { // Define handleErrorMessage callback
+    setError(errorData.error);
+  }, [setError]);
 
   useEffect(() => {
     connect(); // マウント時に接続
@@ -33,68 +101,8 @@ const RunAgent = () => {
     }
   }, []); // 依存配列を修正
 
-  useEffect(() => {
-    const handleMessage = (message: WebSocketMessage) => {
-      if (message.type === 'BROWSER_STATE') {
-        if (message.data) {
-          setBrowserState(message.data);
-        } else {
-          const defaultBrowserState: BrowserState = {
-            url: '',
-            title: '',
-            tabs: [],
-            screenshot: null,
-            interactedElements: [],
-            element_tree: {
-              clickable_elements_to_string: function (attributes: string[]): string {
-                throw new Error('Function not implemented.')
-              }
-            },
-            status: 'IDLE',
-            error: null,
-            taskProgress: '',
-            memory: '',
-            stepNumber: 0
-          };
-          setBrowserState(defaultBrowserState);
-          console.error('Received data is not of type BrowserState:', message.data);
-        }
-      } else if (message.type === 'ERROR') {
-        // エラーメッセージを表示
-        setError(message.data.error);
-      } else if (message.type === 'AGENT_STATUS') {
-        // タスクの進捗状況を更新
-        updateAgentStatus(message.data.taskProgress);
-      }
-    };
-
-    // // WebSocketメッセージのリスナーを追加
-    // const websocket = useWebSocket(wsUrl).websocket;
-    // websocket.onmessage = (event) => {
-    //   const message = JSON.parse(event.data);
-    //   handleMessage(message);
-    // };
-
-    // return () => {
-    //   // クリーンアップ
-    //   websocket.onmessage = null;
-    // };
-  }, [wsUrl]);
-
-  const handleRun = async () => {
-
-      // WebSocketメッセージのリスナーを追加
-      const websocket = useWebSocket(wsUrl).websocket;
-      websocket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        handleMessage(message);
-      };
   
-      return () => {
-        // クリーンアップ
-        websocket.onmessage = null;
-      };
-
+  const handleRun = async () => {
     if (!task) {
       setError('Please enter a task description');
       return;
@@ -127,6 +135,7 @@ const RunAgent = () => {
 
   const handleStop = async () => {
     try {
+      const cleanupWebSocketListener = () => { } // dummy cleanupWebSocketListener
       cleanupWebSocketListener() // Call cleanupWebSocketListener here
       const message: WebSocketMessage = {
         type: 'AGENT_COMMAND',
