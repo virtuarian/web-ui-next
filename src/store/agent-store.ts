@@ -36,13 +36,16 @@ interface AgentState {
   browserConfig: BrowserConfig
   task: string
   additionalInfo: string
+  taskProgress: string
   isRunning: boolean
   setAgentConfig: (config: Partial<AgentConfig>) => void
   setLLMConfig: (config: Partial<LLMConfig>) => void
   setBrowserConfig: (config: Partial<BrowserConfig>) => void
   setTask: (task: string) => void
   setAdditionalInfo: (info: string) => void
+  setTaskProgress: (progress: string) => void
   setIsRunning: (isRunning: boolean) => void
+  updateAgentStatus: (status: boolean) => void
   reset: () => void
 }
 
@@ -82,6 +85,7 @@ export const useAgentStore = create<AgentState>()(
     browserConfig: initialBrowserConfig,
     task: 'go to google.com and type \'OpenAI\' click search and give me the first url',
     additionalInfo: '',
+    taskProgress: '',
     isRunning: false,
 
     setAgentConfig: (config) =>
@@ -103,7 +107,11 @@ export const useAgentStore = create<AgentState>()(
     
     setAdditionalInfo: (info) => set({ additionalInfo: info }),
     
+    setTaskProgress: (progress) => set({ taskProgress: progress }),
+    
     setIsRunning: (isRunning) => set({ isRunning }),
+
+    updateAgentStatus: (status) => set({ isRunning: status }),
 
     reset: () =>
       set({
@@ -112,6 +120,7 @@ export const useAgentStore = create<AgentState>()(
         browserConfig: initialBrowserConfig,
         task: '',
         additionalInfo: '',
+        taskProgress: '',
         isRunning: false,
       }),
   }))

@@ -16,13 +16,15 @@ import BrowserView from '../browser/browser-view'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { useBrowserStore } from '@/store'
 import type { WebSocketMessage, AgentResponse } from '@/lib/websocket/types'
+import { BrowserState } from '@/types/browser'
+
 
 const RunAgent = () => {
-  const { task, additionalInfo, setTask, setAdditionalInfo, isRunning, setIsRunning } = useAgentStore()
+  const { task, additionalInfo, setTask, setAdditionalInfo, isRunning, setIsRunning, updateAgentStatus } = useAgentStore()
   const [error, setError] = useState<string | null>(null)
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:7788'
   const { setState: setBrowserState } = useBrowserStore()
-  const { status, disconnect, connect,sendMessage } = useWebSocket(wsUrl); // オプションを削除
+  const { status, disconnect, connect, sendMessage } = useWebSocket(wsUrl); // オプションを削除
 
   useEffect(() => {
     connect(); // マウント時に接続
@@ -31,8 +33,68 @@ const RunAgent = () => {
     }
   }, []); // 依存配列を修正
 
+  useEffect(() => {
+    const handleMessage = (message: WebSocketMessage) => {
+      if (message.type === 'BROWSER_STATE') {
+        if (message.data) {
+          setBrowserState(message.data);
+        } else {
+          const defaultBrowserState: BrowserState = {
+            url: '',
+            title: '',
+            tabs: [],
+            screenshot: null,
+            interactedElements: [],
+            element_tree: {
+              clickable_elements_to_string: function (attributes: string[]): string {
+                throw new Error('Function not implemented.')
+              }
+            },
+            status: 'IDLE',
+            error: null,
+            taskProgress: '',
+            memory: '',
+            stepNumber: 0
+          };
+          setBrowserState(defaultBrowserState);
+          console.error('Received data is not of type BrowserState:', message.data);
+        }
+      } else if (message.type === 'ERROR') {
+        // エラーメッセージを表示
+        setError(message.data.error);
+      } else if (message.type === 'AGENT_STATUS') {
+        // タスクの進捗状況を更新
+        updateAgentStatus(message.data.taskProgress);
+      }
+    };
+
+    // // WebSocketメッセージのリスナーを追加
+    // const websocket = useWebSocket(wsUrl).websocket;
+    // websocket.onmessage = (event) => {
+    //   const message = JSON.parse(event.data);
+    //   handleMessage(message);
+    // };
+
+    // return () => {
+    //   // クリーンアップ
+    //   websocket.onmessage = null;
+    // };
+  }, [wsUrl]);
 
   const handleRun = async () => {
+
+      // WebSocketメッセージのリスナーを追加
+      const websocket = useWebSocket(wsUrl).websocket;
+      websocket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleMessage(message);
+      };
+  
+      return () => {
+        // クリーンアップ
+        websocket.onmessage = null;
+      };
+
     if (!task) {
       setError('Please enter a task description');
       return;
@@ -57,10 +119,15 @@ const RunAgent = () => {
     };
     console.log('Sending message:', message);
     sendMessage(message);
-  }
+
+    // タスクの進捗状況を表示
+    setIsRunning(true);
+    setError(null);
+  };
 
   const handleStop = async () => {
     try {
+      cleanupWebSocketListener() // Call cleanupWebSocketListener here
       const message: WebSocketMessage = {
         type: 'AGENT_COMMAND',
         data: {
@@ -111,56 +178,7 @@ const RunAgent = () => {
 
           <div className="flex gap-4">
             <Button
-              onClick={async () => {
-                console.log("Run Agent button clicked");
-                // Send task to API route
-                const taskDescription = task; // Get task description from Textbox
-                const browserState = { url: 'example.com', title: 'Example' }; // Replace with actual browser state retrieval if needed
-
-                try {
-                  const savedConfig = localStorage.getItem('llmConfig');
-                  const llmConfig = savedConfig ? JSON.parse(savedConfig) : {};
-                  console.log('llmConfig:', llmConfig);
-                  const response = await fetch('/api/agent/next-action', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ task: taskDescription, browserState: browserState, llmConfig }), // llmConfigを追加
-                  });
-
-                  if (!response.ok) {
-                    console.error('API request failed', response.status, response.statusText);
-                    return;
-                  }
-
-                  const data = await response.json();
-                  console.log('API Response Data:', data); // Log API response data
-
-                  // Handle agentOutput (LLM's response) - For now, just log it
-                  if (data.agentOutput) {
-                    console.log('Agent Output:', data.agentOutput);
-                    // Send browser command to WebSocket server
-                    if (data.agentOutput && data.agentOutput.actionType) {
-                      const browserCommandMessage: WebSocketMessage = {
-                        type: 'BROWSER_COMMAND',
-                        data: {
-                          type: data.agentOutput.actionType.toUpperCase(), // Convert actionType to uppercase for command type
-                          actionType: data.agentOutput.actionType,
-                          actionValue: data.agentOutput.actionValue,
-                          actionElement: data.agentOutput.actionElement,
-                        },
-                      };
-                      console.log('Sending browser command message:', browserCommandMessage);
-                      sendMessage(browserCommandMessage);
-                    }
-                  } else {
-                    console.warn('No agentOutput received from API');
-                  }
-                } catch (error) {
-                  console.error('Error sending task to API:', error);
-                }
-              }}
+              onClick={handleRun}
               disabled={isRunning || status !== 'OPEN'}
               className="flex-1"
             >

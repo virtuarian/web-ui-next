@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { WebSocketClient } from '@/lib/websocket/client';
 import { WebSocketStatus } from '@/lib/utils';
-import { WebSocketMessage, AgentResponse, AgentStatus, BrowserState } from '@/lib/websocket/types';
+import { WebSocketMessage, AgentResponse, AgentStatus } from '@/lib/websocket/types';
 import { useBrowserStore } from '@/store';
+import { BrowserState } from '@/types/browser';
 
 interface WebSocketHookOptions {
   onMessage?: (message: WebSocketMessage) => void;
@@ -92,6 +93,11 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
         wsRef.current.connect();
         console.log('WebSocket connection initiated:', wsRef.current);
         console.log('wsRef.current is correctly assigned after connecting:', wsRef.current); // Added this line
+        // WebSocketメッセージのリスナーを追加 - Move listener setup here
+        wsRef.current.onmessage = (event) => {
+          const message = JSON.parse(event.data);
+          handleMessage(message);
+        };
       } catch (err) {
         console.error('Connection error:', err);
         setError(err instanceof Error ? err : new Error('Connection failed'));
@@ -112,12 +118,10 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
 
   const sendMessage = useCallback((message: WebSocketMessage) => {
     console.log('wsRef:', wsRef.current);
-
     if (!wsRef.current) {
       console.error('wsRef.current is not assigned');
       return;
     }
-
     if (!wsRef.current.isConnected()) {
       console.warn('WebSocket is not connected');
       return;
@@ -134,6 +138,9 @@ export function useWebSocket(url: string, options: WebSocketHookOptions = {}) {
       mountedRef.current = false;
       isDisconnectingRef.current = true; // Set disconnection flag on unmount
       disconnect();
+      if (wsRef.current) { // Cleanup websocket.onmessage listener
+        wsRef.current.onmessage = null;
+      }
     };
   }, [connect, disconnect]);
 

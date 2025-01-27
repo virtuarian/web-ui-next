@@ -4,18 +4,22 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { BrowserState } from "@/types/browser"; // BrowserState 型定義 (必要に応じて修正)
 import { AgentOutput } from "@/types/agent"; // AgentOutput 型定義 (新規作成)
 import { executeBrowserAction } from "@/lib/browser/action-executor";
+import { CustomAgentMessagePrompt } from "@/components/agent/custom_prompts"; // CustomAgentMessagePromptをインポート
 
 export type LLMProviderType = 'openai' | 'gemini' | 'deepseek'; // 他のLLMプロバイダを追加できます
 
 interface LLMRequestParams {
   model: string;
   message: string;
+  browserState: BrowserState; // messageからbrowserStateに変更
   apiKey: string | undefined; // APIキーを必須パラメータからOptionalに変更
   endpoint: string | undefined; // endpointもOptionalに変更
   temperature: number | undefined;
+  onProgress?: (progress: string) => void; // 進捗更新関数を追加
 }
 
 export const sendMessageToLLM = async (provider: LLMProviderType, params: LLMRequestParams) => { // export を追加
+  console.log("sendMessageToLLM called with params:", params);
   switch (provider) {
     case 'openai':
       return await callOpenAI(params);
@@ -68,22 +72,26 @@ const callGemini = async ({ apiKey, model, message }: LLMRequestParams) => {
 };
 
 // DeepSeekのリクエスト関数
-const callDeepSeek = async ({ apiKey, model, message, endpoint }: LLMRequestParams) => {
-
+const callDeepSeek = async ({ apiKey, model, browserState,endpoint }: LLMRequestParams) => {
+  // CustomAgentMessagePromptのインスタンスを作成
+  const customAgentMessagePrompt = new CustomAgentMessagePrompt(browserState);
+  
+  // プロンプトを生成
+  const userMessage = customAgentMessagePrompt.get_user_message();
 
   const requestBody = {
     model: model,
     messages: [
       { role: "system", content: "You are a helpful assistant." },
-      { role: "user",   content: message }
+      { role: "user", content: userMessage.content } // 生成したプロンプトを使用
     ],
     stream: false
   };
 
-  const response = await fetch(`${endpoint}/chat/completions`, { // endpoint を使用
+  const response = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`, // apiKey をパラメータから取得
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody),
@@ -91,7 +99,7 @@ const callDeepSeek = async ({ apiKey, model, message, endpoint }: LLMRequestPara
 
   if (!response.ok) throw new Error('DeepSeek request failed');
   const data = await response.json();
-  return data.choices[0].message.content || ''; // レスポンスの形式に合わせて修正 (要確認)
+  return data.choices[0].message.content || ''; // レスポンスの形式に合わせて修正
 };
 
 export const parseResponse = (responseContent: string): AgentOutput => { // parseResponse 関数は export したまま

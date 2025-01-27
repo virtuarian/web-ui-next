@@ -12,11 +12,19 @@ export interface BrowserConfig {
 }
 
 export interface BrowserState {
-  url: string
-  title: string
-  screenshot: string | null
-  tabs: BrowserTab[]
-  interactedElements: InteractedElement[]
+  url: string | null;
+  title: string | null;
+  screenshot: string | null;
+  tabs: BrowserTab[];
+  interactedElements: InteractedElement[];
+  element_tree: {
+    clickable_elements_to_string: (attributes: string[]) => string;
+  };
+  status: 'IDLE' | 'RUNNING' | 'ERROR' | 'COMPLETED' | 'STOPPED';
+  error: string | null;
+  taskProgress: string;
+  memory: string;
+  stepNumber: number;
 }
 
 export interface BrowserTab {
@@ -37,6 +45,13 @@ export interface InteractedElement {
 export interface BrowserAction {
   type: 'click' | 'type' | 'navigate' | 'scroll' | 'hover' | 'wait'
   params: Record<string, any>
+}
+
+export interface BrowserCommandMessage {
+  id: string;
+  command: BrowserAction;
+  status: 'pending' | 'success' | 'error';
+  result?: any;
 }
 
 export interface BrowserCapabilities {

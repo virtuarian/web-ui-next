@@ -16,34 +16,29 @@ export async function executeBrowserAction(command: any): Promise<any> {
 
     switch (command.actionType) {
       case 'type':
-        // 実装例: テキスト入力 (CSSセレクターで要素を指定)
         console.log(`Executing action: type, element: ${command.actionElement}, value: ${command.actionValue}`); // Log type action details
         await page.locator(command.actionElement).type(command.actionValue);
         break;
       case 'click':
-        // 実装例: 要素クリック (CSSセレクターで要素を指定)
         console.log(`Executing action: click, element: ${command.actionElement}`); // Log click action details
         await page.locator(command.actionElement).click();
         break;
       case 'navigate':
-        // 実装例: ページ遷移
         console.log(`Executing action: navigate, url: ${command.actionValue}`); // Log navigate action details
         await page.goto(command.actionValue);
         break;
       case 'scroll':
-        // 実装例: スクロール (scrollY を指定)
         console.log(`Executing action: scroll, scrollY: ${command.actionValue}`); // Log scroll action details
         await page.evaluate((scrollY) => {
           window.scrollTo(0, scrollY);
         }, command.actionValue);
         break;
       case 'done':
-        // タスク完了アクション (現状は特に処理なし)
         console.log("Task completed by agent.");
         break;
       default:
-        console.warn(`Unknown action type: ${command.actionType}`);
-        return { error: `Unknown action type: ${command.actionType}` }; // 不明なアクションタイプの場合はエラーレスポンス
+        console.error(`Unknown action type: ${command.actionType}`);
+        return { error: `Unknown action type: ${command.actionType}` };
     }
 
     // アクション実行後のブラウザ状態を取得して返す (例: URL, タイトル, スクリーンショット)
@@ -60,6 +55,28 @@ export async function executeBrowserAction(command: any): Promise<any> {
   } catch (error) {
     console.error("Error executing browser command:", error);
     return { error: error.message }; // エラーレスポンスを返す
+  }
+}
+
+export async function getBrowserState(): Promise<any> {
+  if (!browserContext) {
+    console.error("Browser context not initialized.");
+    return { error: "Browser context not initialized" };
+  }
+  try {
+    const page = (await browserContext.pages())[0];
+    const browserState = {
+      url: page.url(),
+      title: await page.title(),
+      screenshot: await page.screenshot({ // スクリーンショットを追加
+        path: 'screenshot.png', // スクリーンショットの保存パス (ワーキングディレクトリ)
+        fullPage: true,       // ページ全体をキャプチャ
+      }),
+    };
+    return browserState;
+  } catch (error) {
+    console.error("Error getting browser state:", error);
+    return { error: error.message };
   }
 }
 
